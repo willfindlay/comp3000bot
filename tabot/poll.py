@@ -90,7 +90,7 @@ class Polls(commands.Cog):
     @commands.command()
     @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
     @commands.guild_only()
-    async def poll(self, ctx: commands.Context, question: str, timeout: to_time = '5 minutes'):
+    async def poll(self, ctx: commands.Context, question: str, timeout: to_time = 300):
         """
         Create a new poll @question with max duration @timeout (default is 5 minutes).  When the poll ends, send a participation summary to the Instructor or TA.
         """
