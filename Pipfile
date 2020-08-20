@@ -1,0 +1,16 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+jedi = "*"
+pylint = "*"
+tabot = {editable = true, path = "."}
+
+[packages]
+discord = "*"
+python-decouple = "*"
+humanreadable = "*"
+bidict = "*"
+yarl = "*"
