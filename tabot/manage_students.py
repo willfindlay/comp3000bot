@@ -239,8 +239,16 @@ class ManageStudents(commands.Cog):
         student.assign_discord_name(member.name)
         student.is_registered = True
 
+        # Name needs to be short enough
+        name = student.name
+        max_name_len = 32 - (len(str(student.number)) + 1)
+        if len(name) > max_name_len:
+            name = name[:max_name_len]
+            await ctx.send("I had to shorten your server nickname due to Discord's max nickname length. If you want to request a manual namechange, please message a TA.")
+        nickname = f'{name}#{student.number}'
+
         try:
-            await member.edit(nick=f'{student.name}#{student.number}')
+            await member.edit(nick=nickname)
         except Exception as e:
             await ctx.send(f'Error setting nickname, please contact an instructor or TA: {repr(e)}')
             raise e
@@ -251,7 +259,7 @@ class ManageStudents(commands.Cog):
             await ctx.send(f'Error changing server role, please contact an instructor or TA: {repr(e)}')
             raise e
 
-        await ctx.send(f'Role updated successfully. Welcome to {guild.name}, {student.name}#{student.number}.')
+        await ctx.send(f'Role updated successfully. Welcome to {guild.name}, {nickname}.')
 
     @commands.command()
     @commands.guild_only()
