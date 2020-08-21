@@ -67,15 +67,6 @@ class StudentManager:
                 raise ValueDuplicationError(f'Refusing to update existing {repr(student)}. You may wish to set overwrite to True.') from None
         return student
 
-    def secret_by_student(self, student: StudentInformation) -> StudentInformation:
-        """
-        Get a secret by its student.
-        """
-        try:
-            return self.students.inverse[student]
-        except KeyError:
-            raise KeyError(f'No secret with student {repr(student)}') from None
-
     def student_by_secret(self, secret: str) -> StudentInformation:
         """
         Get a student by their secret.
