@@ -1,5 +1,6 @@
 import asyncio
 import datetime as dt
+from collections import defaultdict
 from inspect import cleandoc
 import locale
 
@@ -16,7 +17,7 @@ class Polls(commands.Cog):
     """
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.options = ['👍', '👎']
+        self.options = {'👍': 'Yes', '👎': 'No'}
 
     async def _setup_poll(self, ctx: commands.Context, question: str, timeout: float):
         """
@@ -27,7 +28,7 @@ class Polls(commands.Cog):
         delta = dt.timedelta(seconds=timeout)
         end = now + delta
 
-        description = f"Vote using one of {', '.join(self.options[:-1])}, or {self.options[-1]}."
+        description = f"Vote using one of {', '.join(self.options.keys())}."
         footer = f'Time limit is {delta} (ends at {end.time().strftime("%I:%M:%S %p")}).'
 
         message_embed = discord.Embed(description=description, color=discord.Color.blurple())
@@ -38,12 +39,12 @@ class Polls(commands.Cog):
 
         message = await ctx.polls_channel.send('A new poll is available:', embed=message_embed) # type: discord.Message
 
-        for react in self.options:
+        for react in self.options.keys():
             await message.add_reaction(react)
 
         ctx.question = question
         ctx.poll_message = message
-        ctx.participation = set()
+        ctx.participation = defaultdict(lambda: [])
 
     async def _finish_poll(self, ctx: commands.Context):
         """
@@ -58,7 +59,7 @@ class Polls(commands.Cog):
             # Count participation
             for user in await react.users().flatten():
                 if user != self.bot.user:
-                    ctx.participation.add(user)
+                    ctx.participation[user].append(self.options[react.emoji])
 
         # Stop the poll
         await poll_message.clear_reactions()
@@ -76,9 +77,11 @@ class Polls(commands.Cog):
         """
         Send a participation summary to the poll author.
         """
-        names = sorted([user.nick or user.name for user in ctx.participation], key = lambda s: s.lower())
+        # Get invidual votes
+        results = sorted([f'{user.nick or user.name}: {"/".join(votes)}' for user, votes in ctx.participation.items()], key = lambda s: s.lower())
+        # Send votes as a file
         desc = f'Participation summary for poll "{ctx.question}":'
-        _file = generate_file('participation-summary.txt', '\n'.join(names))
+        _file = generate_file('poll_participation_summary.txt', '\n'.join(results))
         await ctx.message.author.send(desc, file=_file)
 
     async def cog_before_invoke(self, ctx: commands.Context):

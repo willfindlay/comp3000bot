@@ -49,7 +49,7 @@ class StudentInformation:
         return (self.name, self.number, self.email, self.discord_name, self.secret)
 
     def to_csv_file(self) -> discord.File:
-        return generate_csv_file(f'{self.name}{self.number}.csv', self.csv_header(), [self.csv_row()])
+        return generate_csv_file(f'{self.name}_{self.number}.csv', self.csv_header(), [self.csv_row()])
 
 class StudentManager:
     def __init__(self, _hash: str):
@@ -63,7 +63,7 @@ class StudentManager:
         else:
             try:
                 self.students[student.secret] = student
-            except ValueDuplicationError as e:
+            except ValueDuplicationError:
                 raise ValueDuplicationError(f'Refusing to update existing {repr(student)}. You may wish to set overwrite to True.') from None
         return student
 
@@ -127,7 +127,7 @@ class StudentManager:
             try:
                 self.add_student(name, int(number), email, overwrite)
             except KeyError as e:
-                print('Unable to add student: {e}')
+                print(f'Unable to add student: {e}')
 
 class ManageStudents(commands.Cog):
     """
@@ -210,6 +210,7 @@ class ManageStudents(commands.Cog):
         Provide your secret and desired server name. The bot will change your name and grant you the Student role.
         """
         guild = None # type: discord.Guild
+        member = None
         for guild in self.bot.guilds:
             if guild.name != server_name:
                 continue
@@ -349,7 +350,7 @@ class ManageStudents(commands.Cog):
 
         if participation.items():
             content = '\n'.join(sorted([f'{name}: {count}' for name, count in participation.items()], key=lambda v: v[0].lower()))
-            summary = generate_file('lecture-participation-{this_morning.date()}.txt',content)
+            summary = generate_file('lecture_participation_{this_morning.date()}.txt',content)
             await ctx.author.send(
                 f'Participation summary (by words typed) for {this_morning.date()}:',
                 file=summary

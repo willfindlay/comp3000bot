@@ -7,6 +7,7 @@ from discord.ext import commands
 from tabot import config
 from tabot.poll import Polls
 from tabot.manage_students import ManageStudents
+from tabot.status_message import StatusMessage
 
 def main(sys_args = sys.argv[1:]):
     os.makedirs(config.DATA_DIR, exist_ok=True)
@@ -16,6 +17,7 @@ def main(sys_args = sys.argv[1:]):
 
     client.add_cog(Polls(client))
     client.add_cog(ManageStudents(client))
+    client.add_cog(StatusMessage(client))
 
     client.run(config.API_TOKEN)
 
