@@ -201,7 +201,7 @@ class ManageStudents(commands.Cog):
             await member.guild.owner.send(f'Unable to send a welcome message: {repr(e)}')
 
         # Send a challenge DM to new member
-        await member.send(f'Welcome to {member.guild.name}. To get full access to {member.guild.name}, please reply to this message with !secret <your_secret> <guild_name>.')
+        await member.send(f'Welcome to {member.guild.name}. To get full access to {member.guild.name}, please reply to this message with `!secret <your_secret> {member.guild.name}`. If you are **not** a student, disregard this message.')
 
     @commands.command()
     @commands.dm_only()
