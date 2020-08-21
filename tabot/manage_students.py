@@ -288,7 +288,7 @@ class ManageStudents(commands.Cog):
     @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
     async def export_students(self, ctx: commands.Context):
         """
-        Force the bot to send a DM containing all student information.
+        Force the bot to send a DM with the student CSV attached.
         """
         try:
             student_manager = self.student_managers[hash(ctx.guild)]
