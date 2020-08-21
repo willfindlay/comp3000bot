@@ -303,7 +303,7 @@ class ManageStudents(commands.Cog):
     @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
     async def create_students_from_csv(self, ctx: commands.Context, has_header: bool = False):
         """
-        Create new students from the attached CSV file. CSV rows should be (name, number, email).
+        Create new students from the attached CSV file. CSV rows should be (name, student number, email).
         """
         if not len(ctx.message.attachments):
             await ctx.send('You must attach at least one csv file.')
