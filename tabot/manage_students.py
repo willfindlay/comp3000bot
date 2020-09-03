@@ -30,10 +30,10 @@ class StudentInformation:
         return f'Student(name={self.name}, number={self.number})'
 
     def __hash__(self):
-        return hash(self.name) ^ hash(self.number)
+        return hash(self.number)
 
     def __eq__(self, other):
-        return self.name == other.name and self.number == other.number
+        return self.number == other.number
 
     def generate_new_secret(self):
         self.secret = token_hex(32)
@@ -251,7 +251,12 @@ class ManageStudents(commands.Cog):
             await ctx.send(f'Error changing server role, please contact an instructor or TA: {repr(e)}')
             raise e
 
-        await ctx.send(f'Role updated successfully. Welcome to {guild.name}, {nickname}.')
+        await ctx.send(f'Role updated successfully. Welcome to {guild.name}, {nickname}. If you would like to request a namechange, please message the instructor or a TA.')
+
+    @secret.error
+    async def secret_error(self, ctx, error):
+        if isinstance(error, commands.errors.MissingRequiredArgument):
+            await ctx.send(repr(error))
 
     @commands.command()
     @commands.guild_only()
