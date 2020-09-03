@@ -41,6 +41,10 @@ class StudentInformation:
     def assign_discord_name(self, discord_name: str):
         self.discord_name = discord_name
 
+    def reset(self):
+        self.discord_name = None
+        self.is_registered = False
+
     @classmethod
     def csv_header(cls) -> Tuple[str, str, str, str, str]:
         return ('name', 'number', 'email', 'discord_name', 'secret')
@@ -65,6 +69,16 @@ class StudentManager:
                 self.students[student.secret] = student
             except ValueDuplicationError:
                 raise ValueDuplicationError(f'Refusing to update existing {repr(student)}. You may wish to set overwrite to True.') from None
+        return student
+
+    def remove_student(self, number: int):
+        secret = self.students.inverse[StudentInformation('', number, '')]
+        return self.students.pop(secret)
+
+    def reset_student(self, number: int):
+        secret = self.students.inverse[StudentInformation('', number, '')]
+        student = self.students[secret]
+        student.reset()
         return student
 
     def student_by_secret(self, secret: str) -> StudentInformation:
@@ -236,7 +250,7 @@ class ManageStudents(commands.Cog):
         max_name_len = 32 - (len(str(student.number)) + 1)
         if len(name) > max_name_len:
             name = name[:max_name_len]
-            await ctx.send("I had to shorten your server nickname due to Discord's max nickname length. If you want to request a manual namechange, please message a TA.")
+            await ctx.send("I had to shorten your server nickname due to Discord's max nickname length. If you want to request a manual namechange, please message the instructor or a TA.")
         nickname = f'{name}#{student.number}'
 
         try:
@@ -278,6 +292,48 @@ class ManageStudents(commands.Cog):
             raise e
 
         await ctx.author.send('Student record created:', file=student.to_csv_file())
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
+    async def remove_student(self, ctx: commands.Context, number: int):
+        """
+        Remove the student with student number @number.
+        """
+        try:
+            student_manager = self.student_managers[hash(ctx.guild)]
+        except Exception as e:
+            await ctx.send(f'Error accessing server information: {repr(e)}')
+            raise e
+
+        try:
+            student = student_manager.remove_student(number)
+        except Exception as e:
+            await ctx.send(f'Error removing student information: {repr(e)}')
+            raise e
+
+        await ctx.author.send(f'Student record removed for {repr(student)}')
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
+    async def reset_student(self, ctx: commands.Context, number: int):
+        """
+        Reset information for the student with student number @number.
+        """
+        try:
+            student_manager = self.student_managers[hash(ctx.guild)]
+        except Exception as e:
+            await ctx.send(f'Error accessing server information: {repr(e)}')
+            raise e
+
+        try:
+            student = student_manager.reset_student(number)
+        except Exception as e:
+            await ctx.send(f'Error resetting student information: {repr(e)}')
+            raise e
+
+        await ctx.author.send(f'Student record reset for {repr(student)}')
 
     @commands.command()
     @commands.guild_only()
