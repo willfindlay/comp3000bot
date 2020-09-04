@@ -77,8 +77,18 @@ class Polls(commands.Cog):
         """
         Send a participation summary to the poll author.
         """
+        manage_students = self.bot.get_cog('ManageStudents')
+        sm = manage_students.get_student_manger(ctx.guild)
+
         # Get invidual votes
-        results = sorted([f'{user.nick or user.name}: {"/".join(votes)}' for user, votes in ctx.participation.items()], key = lambda s: s.lower())
+        results = []
+        for user, votes in ctx.participation.items():
+            try:
+                student = sm.student_by_member(user)
+            except KeyError:
+                continue
+            results.append(f'{student.name}: {"/".join(votes)}')
+        results = sorted(results, key = lambda s: s.lower())
         # Send votes as a file
         desc = f'Participation summary for poll "{ctx.question}":'
         _file = generate_file('poll_participation_summary.txt', '\n'.join(results))

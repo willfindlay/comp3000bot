@@ -7,7 +7,7 @@ import pickle
 import datetime as dt
 from collections import defaultdict
 from secrets import token_hex
-from typing import List, Dict, Tuple, IO
+from typing import List, Dict, Tuple, IO, Optional
 
 import discord
 from discord.ext import commands
@@ -23,6 +23,7 @@ class StudentInformation:
         self.number = number
         self.email = email
         self.discord_name = None # type: str
+        self.discord_id = None # type: int
         self.is_registered = False
         self.generate_new_secret()
 
@@ -38,11 +39,14 @@ class StudentInformation:
     def generate_new_secret(self):
         self.secret = token_hex(32)
 
-    def assign_discord_name(self, discord_name: str):
-        self.discord_name = discord_name
+    def register(self, member: discord.Member):
+        self.discord_name = member.name
+        self.discord_id = member.id
+        self.is_registered = True
 
     def reset(self):
         self.discord_name = None
+        self.discord_id = None
         self.is_registered = False
 
     @classmethod
@@ -58,6 +62,7 @@ class StudentInformation:
 class StudentManager:
     def __init__(self, _hash: str):
         self.students = bidict({}) # type: bidict[str, StudentInformation]
+        self.registered_students = bidict({}) # type: bidict[int, StudentInformation]
         self.hash = _hash
 
     def add_student(self, name: str, number: int, email: str, overwrite: bool = False) -> StudentInformation:
@@ -68,17 +73,28 @@ class StudentManager:
             try:
                 self.students[student.secret] = student
             except ValueDuplicationError:
-                raise ValueDuplicationError(f'Refusing to update existing {repr(student)}. You may wish to set overwrite to True.') from None
+                print(f'Refusing to update existing {repr(student)}. You may wish to set overwrite to True.')
+                return None
         return student
 
     def remove_student(self, number: int):
         secret = self.students.inverse[StudentInformation('', number, '')]
+        try:
+            _id = self.registered_students.inverse[StudentInformation('', number, '')]
+            self.registered_students.pop(_id)
+        except Exception:
+            pass
         return self.students.pop(secret)
 
     def reset_student(self, number: int):
         secret = self.students.inverse[StudentInformation('', number, '')]
         student = self.students[secret]
         student.reset()
+        return student
+
+    def register_student(self, student: StudentInformation, member: discord.Member):
+        student.register(member)
+        self.registered_students[member.id] = student
         return student
 
     def student_by_secret(self, secret: str) -> StudentInformation:
@@ -89,6 +105,15 @@ class StudentManager:
             return self.students[secret]
         except KeyError:
             raise KeyError(f'No student with secret {secret}') from None
+
+    def student_by_member(self, member: discord.Member) -> StudentInformation:
+        """
+        Get a student by their discord member.
+        """
+        try:
+            return self.registered_students[member.id]
+        except KeyError:
+            raise KeyError(f'No student associated with {member.name}') from None
 
     def to_csv_file(self) -> discord.File:
         return generate_csv_file(f'student_information.csv', StudentInformation.csv_header(), [student.csv_row() for student in self.students.values()])
@@ -173,6 +198,9 @@ class ManageStudents(commands.Cog):
                 mgr = StudentManager(_hash)
             self.student_managers[_hash] = mgr
 
+    def get_student_manger(self, guild: discord.Guild) -> StudentManager:
+        return self.student_managers[hash(guild)]
+
     async def cog_before_invoke(self, ctx: commands.Context):
         """
         Hooks every command to ensure the bot is ready.
@@ -242,9 +270,6 @@ class ManageStudents(commands.Cog):
             await ctx.send(f'You are already registered as a student with {guild.name}. Please contact an instructor or TA for assistance.')
             return
 
-        student.assign_discord_name(member.name)
-        student.is_registered = True
-
         # Name needs to be short enough
         name = student.name
         max_name_len = 32
@@ -264,6 +289,8 @@ class ManageStudents(commands.Cog):
             await ctx.send(f'Error changing server role, please contact an instructor or TA: {repr(e)}')
             raise e
 
+        student_manager.register_student(student, member)
+
         await ctx.send(f'Role updated successfully. Welcome to {guild.name}, {name}. If you would like to request a namechange, please message the instructor or a TA.')
 
     @secret.error
@@ -271,26 +298,43 @@ class ManageStudents(commands.Cog):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             await ctx.send(repr(error))
 
-    #@commands.command()
-    #@commands.guild_only()
-    #@commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
-    #async def create_student(self, ctx: commands.Context, name: str, number: int, email: str, overwrite: bool = False):
-    #    """
-    #    Create a new student with a unique secret. The bot will reply in a DM.
-    #    """
-    #    try:
-    #        student_manager = self.student_managers[hash(ctx.guild)]
-    #    except Exception as e:
-    #        await ctx.send(f'Error accessing server information: {repr(e)}')
-    #        raise e
+    @commands.command(hidden=True)
+    @commands.guild_only()
+    @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
+    async def update_students(self, ctx: commands.Context):
+        """
+        Update all stutdents.
+        """
+        guild = ctx.guild # type: discord.Guild
+        sm = self.get_student_manger(guild)
+        sm.registered_students = bidict({})
+        for member in guild.members:
+            for student in sm.students.values(): # type: StudentInformation
+                if student.discord_name == member.name:
+                    sm.registered_students[member.id] = student
+                    break
+        await ctx.author.send('Students updated successfully')
 
-    #    try:
-    #        student = student_manager.add_student(name, number, email, overwrite)
-    #    except Exception as e:
-    #        await ctx.send(f'Error adding student information: {repr(e)}')
-    #        raise e
+    @commands.command()
+    @commands.guild_only()
+    @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
+    async def create_student(self, ctx: commands.Context, name: str, number: int, email: str = '', overwrite: bool = False):
+        """
+        Create a new student with a unique secret. The bot will reply in a DM.
+        """
+        try:
+            student_manager = self.student_managers[hash(ctx.guild)]
+        except Exception as e:
+            await ctx.send(f'Error accessing server information: {repr(e)}')
+            raise e
 
-    #    await ctx.author.send('Student record created:', file=student.to_csv_file())
+        try:
+            student = student_manager.add_student(name, number, email, overwrite)
+        except Exception as e:
+            await ctx.send(f'Error adding student information: {repr(e)}')
+            raise e
+
+        await ctx.author.send('Student record created:', file=student.to_csv_file())
 
     @commands.command()
     @commands.guild_only()
@@ -318,7 +362,7 @@ class ManageStudents(commands.Cog):
     @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
     async def reset_student(self, ctx: commands.Context, number: int):
         """
-        Reset information for the student with student number @number.
+        Reset the student with student number @number.
         """
         try:
             student_manager = self.student_managers[hash(ctx.guild)]
@@ -392,11 +436,17 @@ class ManageStudents(commands.Cog):
 
         participation = defaultdict(lambda: 0) # type: Dict[str, int]
 
+        sm = self.get_student_manger(ctx.guild)
+
         messages = channel.history(limit=None, before=tomorrow_morning, after=this_morning)
         async for message in messages: # type: discord.Message
             if get_role(ctx.guild, *config.STUDENT_ROLES) not in message.author.roles:
                 continue
-            nickname = message.author.nick or message.author.name
+            try:
+                student = sm.student_by_member(message.author)
+            except KeyError:
+                continue
+            nickname = student.name
             participation[nickname] += len(message.content.split())
 
         if participation.items():
