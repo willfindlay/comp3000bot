@@ -27,7 +27,7 @@ class StudentInformation:
         self.generate_new_secret()
 
     def __repr__(self):
-        return f'Student(name={self.name}, number={self.number})'
+        return f'Student(name={self.name})'
 
     def __hash__(self):
         return hash(self.number)
@@ -247,14 +247,13 @@ class ManageStudents(commands.Cog):
 
         # Name needs to be short enough
         name = student.name
-        max_name_len = 32 - (len(str(student.number)) + 1)
+        max_name_len = 32
         if len(name) > max_name_len:
             name = name[:max_name_len]
             await ctx.send("I had to shorten your server nickname due to Discord's max nickname length. If you want to request a manual namechange, please message the instructor or a TA.")
-        nickname = f'{name}#{student.number}'
 
         try:
-            await member.edit(nick=nickname)
+            await member.edit(nick=name)
         except Exception as e:
             await ctx.send(f'Error setting nickname, please contact an instructor or TA: {repr(e)}')
             raise e
@@ -265,33 +264,33 @@ class ManageStudents(commands.Cog):
             await ctx.send(f'Error changing server role, please contact an instructor or TA: {repr(e)}')
             raise e
 
-        await ctx.send(f'Role updated successfully. Welcome to {guild.name}, {nickname}. If you would like to request a namechange, please message the instructor or a TA.')
+        await ctx.send(f'Role updated successfully. Welcome to {guild.name}, {name}. If you would like to request a namechange, please message the instructor or a TA.')
 
     @secret.error
     async def secret_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             await ctx.send(repr(error))
 
-    @commands.command()
-    @commands.guild_only()
-    @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
-    async def create_student(self, ctx: commands.Context, name: str, number: int, email: str, overwrite: bool = False):
-        """
-        Create a new student with a unique secret. The bot will reply in a DM.
-        """
-        try:
-            student_manager = self.student_managers[hash(ctx.guild)]
-        except Exception as e:
-            await ctx.send(f'Error accessing server information: {repr(e)}')
-            raise e
+    #@commands.command()
+    #@commands.guild_only()
+    #@commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
+    #async def create_student(self, ctx: commands.Context, name: str, number: int, email: str, overwrite: bool = False):
+    #    """
+    #    Create a new student with a unique secret. The bot will reply in a DM.
+    #    """
+    #    try:
+    #        student_manager = self.student_managers[hash(ctx.guild)]
+    #    except Exception as e:
+    #        await ctx.send(f'Error accessing server information: {repr(e)}')
+    #        raise e
 
-        try:
-            student = student_manager.add_student(name, number, email, overwrite)
-        except Exception as e:
-            await ctx.send(f'Error adding student information: {repr(e)}')
-            raise e
+    #    try:
+    #        student = student_manager.add_student(name, number, email, overwrite)
+    #    except Exception as e:
+    #        await ctx.send(f'Error adding student information: {repr(e)}')
+    #        raise e
 
-        await ctx.author.send('Student record created:', file=student.to_csv_file())
+    #    await ctx.author.send('Student record created:', file=student.to_csv_file())
 
     @commands.command()
     @commands.guild_only()
@@ -411,4 +410,3 @@ class ManageStudents(commands.Cog):
             await ctx.author.send(
                 f'No participation data for {this_morning.date()}'
             )
-
