@@ -312,8 +312,9 @@ class ManageStudents(commands.Cog):
             for student in sm.students.values(): # type: StudentInformation
                 if student.discord_name == member.name:
                     sm.registered_students[member.id] = student
+                    print(f'Associated {member.name}, {member.id} with {student}')
                     break
-        await ctx.author.send('Students updated successfully')
+        print('Students updated successfully')
 
     @commands.command()
     @commands.guild_only()
