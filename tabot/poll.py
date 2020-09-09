@@ -52,14 +52,17 @@ class Polls(commands.Cog):
         """
         ctx.poll_message = await ctx.polls_channel.fetch_message(ctx.poll_message.id)
         poll_message = ctx.poll_message # type: discord.Message
-        results = {}
+        results = defaultdict(int)
 
         for react in poll_message.reactions: # type: discord.Reaction
             results[react.emoji] = react.count - 1
             # Count participation
             for user in await react.users().flatten():
                 if user != self.bot.user:
-                    ctx.participation[user].append(self.options[react.emoji])
+                    try:
+                        ctx.participation[user].append(self.options[react.emoji])
+                    except KeyError:
+                        pass
 
         # Stop the poll
         await poll_message.clear_reactions()
