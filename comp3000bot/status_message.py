@@ -5,12 +5,14 @@ from typing import List, Dict, Tuple, IO, Optional
 import discord
 from discord.ext import commands
 
-from tabot import config
+from comp3000bot import config
+
 
 class StatusMessage(commands.Cog):
     """
     Manage status messages.
     """
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.auto_change_status = True

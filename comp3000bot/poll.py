@@ -7,14 +7,16 @@ import locale
 import discord
 from discord.ext import commands
 
-from tabot import config
-from tabot.time import to_time
-from tabot.utils import generate_file, get_text_channel_or_curr
+from comp3000bot import config
+from comp3000bot.time import to_time
+from comp3000bot.utils import generate_file, get_text_channel_or_curr
+
 
 class Polls(commands.Cog):
     """
     Create polls in a dedicated channel and summarize participation.
     """
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.options = {'👍': 'Yes', '👎': 'No'}
@@ -29,15 +31,21 @@ class Polls(commands.Cog):
         end = now + delta
 
         description = f"Vote using one of {', '.join(self.options.keys())}."
-        footer = f'Time limit is {delta} (ends at {end.time().strftime("%I:%M:%S %p")}).'
+        footer = (
+            f'Time limit is {delta} (ends at {end.time().strftime("%I:%M:%S %p")}).'
+        )
 
-        message_embed = discord.Embed(description=description, color=discord.Color.blurple())
+        message_embed = discord.Embed(
+            description=description, color=discord.Color.blurple()
+        )
         message_embed.add_field(name='Poll Question:', value=question)
         message_embed.set_footer(text=footer)
 
         ctx.polls_channel = get_text_channel_or_curr(ctx, *config.POLL_CHANNELS)
 
-        message = await ctx.polls_channel.send('A new poll is available:', embed=message_embed) # type: discord.Message
+        message = await ctx.polls_channel.send(
+            'A new poll is available:', embed=message_embed
+        )  # type: discord.Message
 
         for react in self.options.keys():
             await message.add_reaction(react)
@@ -51,10 +59,10 @@ class Polls(commands.Cog):
         Stop the poll and clean up.
         """
         ctx.poll_message = await ctx.polls_channel.fetch_message(ctx.poll_message.id)
-        poll_message = ctx.poll_message # type: discord.Message
+        poll_message = ctx.poll_message  # type: discord.Message
         results = defaultdict(int)
 
-        for react in poll_message.reactions: # type: discord.Reaction
+        for react in poll_message.reactions:  # type: discord.Reaction
             results[react.emoji] = react.count - 1
             # Count participation
             for user in await react.users().flatten():
@@ -91,7 +99,7 @@ class Polls(commands.Cog):
             except KeyError:
                 continue
             results.append(f'{student.name}: {"/".join(votes)}')
-        results = sorted(results, key = lambda s: s.lower())
+        results = sorted(results, key=lambda s: s.lower())
         # Send votes as a file
         desc = f'Participation summary for poll "{ctx.question}":'
         _file = generate_file('poll_participation_summary.txt', '\n'.join(results))

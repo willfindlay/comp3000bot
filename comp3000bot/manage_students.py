@@ -14,16 +14,24 @@ from discord.ext import commands
 from bidict import bidict
 from bidict._exc import *
 
-from tabot import config
-from tabot.utils import generate_file, generate_csv_file, get_text_channel, get_guild, get_role, get_text_channel_or_curr
+from comp3000bot import config
+from comp3000bot.utils import (
+    generate_file,
+    generate_csv_file,
+    get_text_channel,
+    get_guild,
+    get_role,
+    get_text_channel_or_curr,
+)
+
 
 class StudentInformation:
     def __init__(self, name: str, number: int, email: str):
         self.name = name
         self.number = number
         self.email = email
-        self.discord_name = None # type: str
-        self.discord_id = None # type: int
+        self.discord_name = None  # type: str
+        self.discord_id = None  # type: int
         self.is_registered = False
         self.generate_new_secret()
 
@@ -57,15 +65,20 @@ class StudentInformation:
         return (self.name, self.number, self.email, self.discord_name, self.secret)
 
     def to_csv_file(self) -> discord.File:
-        return generate_csv_file(f'{self.name}_{self.number}.csv', self.csv_header(), [self.csv_row()])
+        return generate_csv_file(
+            f'{self.name}_{self.number}.csv', self.csv_header(), [self.csv_row()]
+        )
+
 
 class StudentManager:
     def __init__(self, _hash: str):
-        self.students = bidict({}) # type: bidict[str, StudentInformation]
-        self.registered_students = bidict({}) # type: bidict[int, StudentInformation]
+        self.students = bidict({})  # type: bidict[str, StudentInformation]
+        self.registered_students = bidict({})  # type: bidict[int, StudentInformation]
         self.hash = _hash
 
-    def add_student(self, name: str, number: int, email: str, overwrite: bool = False) -> StudentInformation:
+    def add_student(
+        self, name: str, number: int, email: str, overwrite: bool = False
+    ) -> StudentInformation:
         student = StudentInformation(name, number, email)
         if overwrite:
             self.students.forceput(student.secret, student)
@@ -73,7 +86,9 @@ class StudentManager:
             try:
                 self.students[student.secret] = student
             except ValueDuplicationError:
-                print(f'Refusing to update existing {repr(student)}. You may wish to set overwrite to True.')
+                print(
+                    f'Refusing to update existing {repr(student)}. You may wish to set overwrite to True.'
+                )
                 return None
         return student
 
@@ -116,7 +131,11 @@ class StudentManager:
             raise KeyError(f'No student associated with {member.name}') from None
 
     def to_csv_file(self) -> discord.File:
-        return generate_csv_file(f'student_information.csv', StudentInformation.csv_header(), [student.csv_row() for student in self.students.values()])
+        return generate_csv_file(
+            f'student_information.csv',
+            StudentInformation.csv_header(),
+            [student.csv_row() for student in self.students.values()],
+        )
 
     @classmethod
     def get_filename(cls, _hash: str) -> str:
@@ -146,7 +165,9 @@ class StudentManager:
         assert type(obj) == cls
         return obj
 
-    def populate_from_csv_file(self, fp: IO[str], has_header: bool, overwrite: bool = False) -> 'StudentInformation':
+    def populate_from_csv_file(
+        self, fp: IO[str], has_header: bool, overwrite: bool = False
+    ) -> 'StudentInformation':
         """
         Populate this student manager from an open CSV file.
         """
@@ -159,13 +180,15 @@ class StudentManager:
             except KeyError as e:
                 print(f'Unable to add student: {e}')
 
+
 class ManageStudents(commands.Cog):
     """
     Manage access to the Student role.
     """
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.student_managers = {} # type: Dict[str, StudentManager]
+        self.student_managers = {}  # type: Dict[str, StudentManager]
         bot.loop.create_task(self._autosave())
         atexit.register(self.save)
 
@@ -229,12 +252,18 @@ class ManageStudents(commands.Cog):
         # Send a welcome message
         try:
             welcome_channel = get_text_channel(member.guild, *config.WELCOME_CHANNELS)
-            await welcome_channel.send(f'Welcome to the server <@{member.id}>. Please check your private messages from me for further instructions.')
+            await welcome_channel.send(
+                f'Welcome to the server <@{member.id}>. Please check your private messages from me for further instructions.'
+            )
         except Exception as e:
-            await member.guild.owner.send(f'Unable to send a welcome message: {repr(e)}')
+            await member.guild.owner.send(
+                f'Unable to send a welcome message: {repr(e)}'
+            )
 
         # Send a challenge DM to new member
-        await member.send(f'Welcome to {member.guild.name}. To get full access to {member.guild.name}, please reply to this message with `!secret <your_secret> {member.guild.name}`. If you are **not** a student, disregard this message.')
+        await member.send(
+            f'Welcome to {member.guild.name}. To get full access to {member.guild.name}, please reply to this message with `!secret <your_secret> {member.guild.name}`. If you are **not** a student, disregard this message.'
+        )
 
     @commands.command()
     @commands.dm_only()
@@ -242,7 +271,7 @@ class ManageStudents(commands.Cog):
         """
         Provide your secret and desired server name. The bot will change your name and grant you the Student role.
         """
-        guild = None # type: discord.Guild
+        guild = None  # type: discord.Guild
         member = None
         for guild in self.bot.guilds:
             if guild.name != server_name:
@@ -251,7 +280,9 @@ class ManageStudents(commands.Cog):
             if member:
                 break
         if not member:
-            await ctx.send(f'I was unable to find you in the server {server_name}. Please check the spelling and try again.')
+            await ctx.send(
+                f'I was unable to find you in the server {server_name}. Please check the spelling and try again.'
+            )
             return
 
         try:
@@ -267,7 +298,9 @@ class ManageStudents(commands.Cog):
             raise e
 
         if student.is_registered:
-            await ctx.send(f'You are already registered as a student with {guild.name}. Please contact an instructor or TA for assistance.')
+            await ctx.send(
+                f'You are already registered as a student with {guild.name}. Please contact an instructor or TA for assistance.'
+            )
             return
 
         # Name needs to be short enough
@@ -275,23 +308,31 @@ class ManageStudents(commands.Cog):
         max_name_len = 32
         if len(name) > max_name_len:
             name = name[:max_name_len]
-            await ctx.send("I had to shorten your server nickname due to Discord's max nickname length. If you want to request a manual namechange, please message the instructor or a TA.")
+            await ctx.send(
+                "I had to shorten your server nickname due to Discord's max nickname length. If you want to request a manual namechange, please message the instructor or a TA."
+            )
 
         try:
             await member.edit(nick=name)
         except Exception as e:
-            await ctx.send(f'Error setting nickname, please contact an instructor or TA: {repr(e)}')
+            await ctx.send(
+                f'Error setting nickname, please contact an instructor or TA: {repr(e)}'
+            )
             raise e
 
         try:
             await member.add_roles(get_role(guild, *config.STUDENT_ROLES))
         except Exception as e:
-            await ctx.send(f'Error changing server role, please contact an instructor or TA: {repr(e)}')
+            await ctx.send(
+                f'Error changing server role, please contact an instructor or TA: {repr(e)}'
+            )
             raise e
 
         student_manager.register_student(student, member)
 
-        await ctx.send(f'Role updated successfully. Welcome to {guild.name}, {name}. If you would like to request a namechange, please message the instructor or a TA.')
+        await ctx.send(
+            f'Role updated successfully. Welcome to {guild.name}, {name}. If you would like to request a namechange, please message the instructor or a TA.'
+        )
 
     @secret.error
     async def secret_error(self, ctx, error):
@@ -305,11 +346,11 @@ class ManageStudents(commands.Cog):
         """
         Update all stutdents.
         """
-        guild = ctx.guild # type: discord.Guild
+        guild = ctx.guild  # type: discord.Guild
         sm = self.get_student_manger(guild)
         sm.registered_students = bidict({})
         for member in guild.members:
-            for student in sm.students.values(): # type: StudentInformation
+            for student in sm.students.values():  # type: StudentInformation
                 if student.discord_name == member.name:
                     sm.registered_students[member.id] = student
                     print(f'Associated {member.name}, {member.id} with {student}')
@@ -319,7 +360,14 @@ class ManageStudents(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
-    async def create_student(self, ctx: commands.Context, name: str, number: int, email: str = '', overwrite: bool = False):
+    async def create_student(
+        self,
+        ctx: commands.Context,
+        name: str,
+        number: int,
+        email: str = '',
+        overwrite: bool = False,
+    ):
         """
         Create a new student with a unique secret. The bot will reply in a DM.
         """
@@ -392,12 +440,16 @@ class ManageStudents(commands.Cog):
             await ctx.send(f'Error accessing server information: {repr(e)}')
             raise e
 
-        await ctx.author.send(f'Student records for {ctx.guild.name}:', file=student_manager.to_csv_file())
+        await ctx.author.send(
+            f'Student records for {ctx.guild.name}:', file=student_manager.to_csv_file()
+        )
 
     @commands.command()
     @commands.guild_only()
     @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
-    async def create_students_from_csv(self, ctx: commands.Context, has_header: bool = False):
+    async def create_students_from_csv(
+        self, ctx: commands.Context, has_header: bool = False
+    ):
         """
         Create new students from the attached CSV file. CSV rows should be (name, student number, email).
         """
@@ -413,14 +465,16 @@ class ManageStudents(commands.Cog):
             await ctx.send('Command message deleted to protect personal information.')
             raise e
 
-        for attachment in ctx.message.attachments: # type: discord.Attachment
+        for attachment in ctx.message.attachments:  # type: discord.Attachment
             fp = io.StringIO((await attachment.read()).decode('utf-8'))
             student_manager.populate_from_csv_file(fp, has_header)
 
         await ctx.message.delete()
         await ctx.send('Command message deleted to protect personal information.')
 
-        await ctx.author.send(f'Student records for {ctx.guild.name}:', file=student_manager.to_csv_file())
+        await ctx.author.send(
+            f'Student records for {ctx.guild.name}:', file=student_manager.to_csv_file()
+        )
 
     @commands.command()
     @commands.guild_only()
@@ -432,15 +486,19 @@ class ManageStudents(commands.Cog):
         channel = get_text_channel_or_curr(ctx, *config.LECTURE_CHANNELS)
 
         # Calculate time delta for 24h period
-        this_morning = dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=1)
+        this_morning = dt.datetime.now().replace(
+            hour=0, minute=0, second=0, microsecond=1
+        )
         tomorrow_morning = this_morning + dt.timedelta(days=1)
 
-        participation = defaultdict(lambda: 0) # type: Dict[str, int]
+        participation = defaultdict(lambda: 0)  # type: Dict[str, int]
 
         sm = self.get_student_manger(ctx.guild)
 
-        messages = channel.history(limit=None, before=tomorrow_morning, after=this_morning)
-        async for message in messages: # type: discord.Message
+        messages = channel.history(
+            limit=None, before=tomorrow_morning, after=this_morning
+        )
+        async for message in messages:  # type: discord.Message
             if get_role(ctx.guild, *config.STUDENT_ROLES) not in message.author.roles:
                 continue
             try:
@@ -451,13 +509,18 @@ class ManageStudents(commands.Cog):
             participation[nickname] += len(message.content.split())
 
         if participation.items():
-            content = '\n'.join(sorted([f'{name}: {count}' for name, count in participation.items()], key=lambda v: v[0].lower()))
-            summary = generate_file('lecture_participation_{this_morning.date()}.txt',content)
+            content = '\n'.join(
+                sorted(
+                    [f'{name}: {count}' for name, count in participation.items()],
+                    key=lambda v: v[0].lower(),
+                )
+            )
+            summary = generate_file(
+                'lecture_participation_{this_morning.date()}.txt', content
+            )
             await ctx.author.send(
                 f'Participation summary (by words typed) for {this_morning.date()}:',
-                file=summary
+                file=summary,
             )
         else:
-            await ctx.author.send(
-                f'No participation data for {this_morning.date()}'
-            )
+            await ctx.author.send(f'No participation data for {this_morning.date()}')

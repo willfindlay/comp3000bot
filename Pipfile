@@ -6,11 +6,4 @@ verify_ssl = true
 [dev-packages]
 jedi = "*"
 pylint = "*"
-tabot = {editable = true, path = "."}
-
-[packages]
-discord = "*"
-python-decouple = "*"
-humanreadable = "*"
-bidict = "*"
-yarl = "*"
+comp3000bot = {editable = true, path = "."}

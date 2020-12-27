@@ -8,7 +8,9 @@ quoted_string_re = re.compile(r"(?:\"([^\"]+)\"|'([^']+)')")
 
 API_TOKEN = config('API_TOKEN')
 
-DATA_DIR = os.path.abspath(os.path.expanduser(config('DATA_DIR', default='~/.tabot')))
+DATA_DIR = os.path.abspath(
+    os.path.expanduser(config('DATA_DIR', default='~/.comp3000bot'))
+)
 STUDENTS_DIR = os.path.join(DATA_DIR, config('STUDENTS_FILE', default='students'))
 
 AUTOSAVE_INTERVAL = config('AUTOSAVE_INTERVAL', default=600, cast=int)

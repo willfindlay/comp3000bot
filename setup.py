@@ -1,12 +1,15 @@
 from setuptools import setup
 
+version = '0.0.2'
+
 setup(
-    name='tabot',
-    version='0.0.1',
-    url='https://github.com/TAbot.git',
+    name='comp3000bot',
+    version=version,
+    url='https://github.com/comp3000bot.git',
     author='William Findlay',
     author_email='william@williamfindlay.com',
-    description='A Discord bot to help teaching online university courses.',
-    packages=['tabot'],
-    scripts=['bin/tabot'],
+    description='A Discord bot for the COMP3000 course at Carleton.',
+    packages=['comp3000bot'],
+    install_requires=['discord', 'python-decouple', 'humanreadable', 'bidict'],
+    scripts=['bin/comp3000bot'],
 )
