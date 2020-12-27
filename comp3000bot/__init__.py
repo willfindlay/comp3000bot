@@ -20,6 +20,18 @@ class MyHelpCommand(commands.DefaultHelpCommand):
         self.width = 300
 
 
+async def ensure_guild_id(ctx: commands.Context):
+    """
+    Ensure correct guild_id.
+    """
+    if ctx.guild is None:
+        return
+
+    if ctx.guild.id != config.GUILD_ID:
+        print(f"An invalid guild {ctx.guild.name} tried to run a command.")
+        raise Exception("Wrong guild ID! This incident will be reported.")
+
+
 def main(sys_args=sys.argv[1:]):
     # Create directories to store data, if they don't already exist
     os.makedirs(config.DATA_DIR, exist_ok=True)
@@ -41,6 +53,8 @@ def main(sys_args=sys.argv[1:]):
     client.add_cog(ManageStudents(client))
     client.add_cog(StatusMessage(client))
     # TODO: Add a participation cog
+
+    client.before_invoke(ensure_guild_id)
 
     # Run the bot
     client.run(config.API_TOKEN)

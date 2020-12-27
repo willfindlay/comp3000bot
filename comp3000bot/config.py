@@ -8,7 +8,7 @@ quoted_string_re = re.compile(r"(?:\"([^\"]+)\"|'([^']+)')")
 
 API_TOKEN = config('API_TOKEN')
 
-SERVER_NAME = config('SERVER_NAME')
+GUILD_ID = config('GUILD_ID', cast=lambda v: int(v))
 
 DATA_DIR = os.path.abspath(
     os.path.expanduser(config('DATA_DIR', default='~/.comp3000bot'))

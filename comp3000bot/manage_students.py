@@ -71,10 +71,9 @@ class StudentInformation:
 
 
 class StudentManager:
-    def __init__(self, _hash: str):
+    def __init__(self):
         self.students = bidict({})  # type: bidict[str, StudentInformation]
         self.registered_students = bidict({})  # type: bidict[int, StudentInformation]
-        self.hash = _hash
 
     def add_student(
         self, name: str, number: int, email: str, overwrite: bool = False
@@ -138,27 +137,29 @@ class StudentManager:
         )
 
     @classmethod
-    def get_filename(cls, _hash: str) -> str:
+    def get_filename(
+        cls,
+    ) -> str:
         """
         Return the canonical filename of the StudentManager for guild hash @_hash.
         """
-        return os.path.join(config.STUDENTS_DIR, f'students_{_hash}.dat')
+        return os.path.join(config.STUDENTS_DIR, f'students_{config.GUILD_ID}.dat')
 
     def to_disk(self):
         """
         Write StudentManager to disk.
         """
-        fname = self.get_filename(self.hash)
+        fname = self.get_filename()
         print(f'Saving {fname}...')
         with open(fname, 'wb+') as f:
             pickle.dump(self, f)
 
     @classmethod
-    def from_disk(cls, _hash: str) -> 'StudentManager':
+    def from_disk(cls) -> 'StudentManager':
         """
-        Load StudentManager from the canonical file for guild hash @_hash.
+        Load StudentManager from a file saved on disk.
         """
-        fname = cls.get_filename(_hash)
+        fname = cls.get_filename()
         print(f'Loading {fname}...')
         with open(fname, 'rb') as f:
             obj = pickle.load(f)
@@ -188,17 +189,22 @@ class ManageStudents(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.student_managers = {}  # type: Dict[str, StudentManager]
         bot.loop.create_task(self._autosave())
         atexit.register(self.save)
+
+        try:
+            mgr = StudentManager.from_disk()
+        except Exception as e:
+            print(f'Unable to load student manager for {config.GUILD_ID}: {repr(e)}')
+            mgr = StudentManager()
+        self.mgr = mgr
 
     def save(self):
         """
         Save all student managers to disk.
         """
         print('Saving all student information to disk...')
-        for mgr in self.student_managers.values():
-            mgr.to_disk()
+        self.mgr.to_disk()
 
     async def _autosave(self):
         """
@@ -208,41 +214,14 @@ class ManageStudents(commands.Cog):
             await asyncio.sleep(config.AUTOSAVE_INTERVAL)
             self.save()
 
-    async def _init_students(self, *guilds: discord.Guild):
-        """
-        Initialize student manger for all @guilds.
-        """
-        for guild in guilds:
-            _hash = hash(guild)
-            try:
-                mgr = StudentManager.from_disk(_hash)
-            except Exception as e:
-                print(f'Unable to load student manager for {guild.name}: {repr(e)}')
-                mgr = StudentManager(_hash)
-            self.student_managers[_hash] = mgr
-
-    def get_student_manger(self, guild: discord.Guild) -> StudentManager:
-        return self.student_managers[hash(guild)]
+    def get_student_manger(self, *args, **kwargs) -> StudentManager:
+        return self.mgr
 
     async def cog_before_invoke(self, ctx: commands.Context):
         """
         Hooks every command to ensure the bot is ready.
         """
         await self.bot.wait_until_ready()
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        """
-        Hooks the bot being ready.
-        """
-        await self._init_students(*self.bot.guilds)
-
-    @commands.Cog.listener()
-    async def on_guild_join(self, guild: discord.Guild):
-        """
-        Hooks the bot joining @guild.
-        """
-        await self._init_students(guild)
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
@@ -262,34 +241,32 @@ class ManageStudents(commands.Cog):
 
         # Send a challenge DM to new member
         await member.send(
-            f'Welcome to {member.guild.name}. To get full access to {member.guild.name}, please reply to this message with `!secret <your_secret> {member.guild.name}`. If you are **not** a student, disregard this message.'
+            f'Welcome to {member.guild.name}. You should have been emailed a **secret access token**. Please check your **Carleton email** for your token (if it\'s not there, **check your junk folder**). To get full access to {member.guild.name}, please reply to this message with `!secret your_secret` where you replace `your_secret` with the token from the email. If you are **not** a student, disregard this message.'
         )
 
     @commands.command()
     @commands.dm_only()
-    async def secret(self, ctx: commands.Context, your_secret: str, server_name: str):
+    async def secret(self, ctx: commands.Context, your_secret: str):
         """
         Provide your secret and desired server name. The bot will change your name and grant you the Student role.
         """
-        guild = None  # type: discord.Guild
-        member = None
-        for guild in self.bot.guilds:
-            if guild.name != server_name:
-                continue
-            member = guild.get_member(ctx.author.id)
-            if member:
-                break
+        try:
+            guild = self.bot.guilds[0]  # type: discord.Guild
+        except IndexError:
+            await ctx.send(
+                "Unable to find the server. Please contact the instructor or a TA."
+            )
+            raise Exception("Unable to find the server.")
+
+        member = guild.get_member(ctx.author.id)
+
         if not member:
             await ctx.send(
-                f'I was unable to find you in the server {server_name}. Please check the spelling and try again.'
+                f'I was unable to find you in the server {guild.name}. Please check the spelling and try again.'
             )
             return
 
-        try:
-            student_manager = self.student_managers[hash(guild)]
-        except Exception as e:
-            await ctx.send(f'Error accessing server information: {repr(e)}')
-            raise e
+        student_manager = self.mgr
 
         try:
             student = student_manager.student_by_secret(your_secret)
@@ -371,11 +348,7 @@ class ManageStudents(commands.Cog):
         """
         Create a new student with a unique secret. The bot will reply in a DM.
         """
-        try:
-            student_manager = self.student_managers[hash(ctx.guild)]
-        except Exception as e:
-            await ctx.send(f'Error accessing server information: {repr(e)}')
-            raise e
+        student_manager = self.mgr
 
         try:
             student = student_manager.add_student(name, number, email, overwrite)
@@ -392,11 +365,7 @@ class ManageStudents(commands.Cog):
         """
         Remove the student with student number @number.
         """
-        try:
-            student_manager = self.student_managers[hash(ctx.guild)]
-        except Exception as e:
-            await ctx.send(f'Error accessing server information: {repr(e)}')
-            raise e
+        student_manager = self.mgr
 
         try:
             student = student_manager.remove_student(number)
@@ -413,11 +382,7 @@ class ManageStudents(commands.Cog):
         """
         Reset the student with student number @number.
         """
-        try:
-            student_manager = self.student_managers[hash(ctx.guild)]
-        except Exception as e:
-            await ctx.send(f'Error accessing server information: {repr(e)}')
-            raise e
+        student_manager = self.mgr
 
         try:
             student = student_manager.reset_student(number)
@@ -434,11 +399,7 @@ class ManageStudents(commands.Cog):
         """
         Force the bot to send a DM with the student CSV attached.
         """
-        try:
-            student_manager = self.student_managers[hash(ctx.guild)]
-        except Exception as e:
-            await ctx.send(f'Error accessing server information: {repr(e)}')
-            raise e
+        student_manager = self.mgr
 
         await ctx.author.send(
             f'Student records for {ctx.guild.name}:', file=student_manager.to_csv_file()
@@ -457,13 +418,7 @@ class ManageStudents(commands.Cog):
             await ctx.send('You must attach at least one csv file.')
             return
 
-        try:
-            student_manager = self.student_managers[hash(ctx.guild)]
-        except Exception as e:
-            await ctx.send(f'Error accessing server information: {repr(e)}')
-            await ctx.message.delete()
-            await ctx.send('Command message deleted to protect personal information.')
-            raise e
+        student_manager = self.mgr
 
         for attachment in ctx.message.attachments:  # type: discord.Attachment
             fp = io.StringIO((await attachment.read()).decode('utf-8'))
