@@ -8,6 +8,8 @@ quoted_string_re = re.compile(r"(?:\"([^\"]+)\"|'([^']+)')")
 
 API_TOKEN = config('API_TOKEN')
 
+SERVER_NAME = config('SERVER_NAME')
+
 DATA_DIR = os.path.abspath(
     os.path.expanduser(config('DATA_DIR', default='~/.comp3000bot'))
 )
@@ -56,8 +58,9 @@ STATUS_CHANGE_WAIT = config(
     cast=int,
     default=f'{60 * 60 * 6}',
 )
+
 STATUS_MESSAGES = config(
     'STATUS_MESSAGES',
     cast=lambda v: [m[1].strip() for m in quoted_string_re.finditer(v)],
-    default='"Ready for action!", "Enjoy the course!", "Make a new friend!", "Now in high definition!", "Happy GNU/Year!", "What is my purpose?"',
+    default='"Ready for action!", "Enjoy the course!", "Happy GNU/Year!", "What is my purpose?"',
 )
