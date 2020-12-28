@@ -42,7 +42,6 @@ class ManageStudents(commands.Cog):
         atexit.register(self.save)
 
         self.mgr = Students.factory()
-        print(self.mgr)
 
     def save(self):
         """

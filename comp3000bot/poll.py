@@ -91,7 +91,6 @@ class Polls(commands.Cog):
         """
         manage_students = self.bot.get_cog('ManageStudents')
         sm = Students.factory()
-        print(sm)
 
         # Get invidual votes
         results = []
