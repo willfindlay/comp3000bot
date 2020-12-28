@@ -8,6 +8,7 @@ import discord
 from discord.ext import commands
 
 from comp3000bot import config
+from comp3000bot.students import Students
 from comp3000bot.time import to_time
 from comp3000bot.utils import generate_file, get_text_channel_or_curr
 
@@ -89,7 +90,8 @@ class Polls(commands.Cog):
         Send a participation summary to the poll author.
         """
         manage_students = self.bot.get_cog('ManageStudents')
-        sm = manage_students.get_student_manger()
+        sm = Students.factory()
+        print(sm)
 
         # Get invidual votes
         results = []

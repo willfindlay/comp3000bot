@@ -43,6 +43,27 @@ async def ensure_guild_id(ctx: commands.Context):
         raise Exception(msg)
 
 
+# List of commands for which the user should receive a detailed notification of
+# failure
+NOTIFY_WITH_DETAILS = [
+    commands.UserInputError,
+    commands.CommandError,
+    commands.ArgumentParsingError,
+    commands.CheckFailure,
+]
+
+
+async def on_command_error(ctx: commands.Context, err: Exception):
+    """
+    Log command errors.
+    """
+    logger.exception(f"Error in command {ctx.command}:", exc_info=err)
+    if any(map(lambda x: isinstance(err, x), NOTIFY_WITH_DETAILS)):
+        await ctx.send(f'Command failed: {err}')
+    else:
+        await ctx.send(f'Command failed due to an unhandled exception.')
+
+
 def main(sys_args=sys.argv[1:]):
     # Create directories to store data, if they don't already exist
     os.makedirs(config.DATA_DIR, exist_ok=True)
@@ -66,6 +87,7 @@ def main(sys_args=sys.argv[1:]):
     # TODO: Add a participation cog
 
     client.before_invoke(ensure_guild_id)
+    client.on_command_error = on_command_error
 
     # Run the bot
     client.run(config.API_TOKEN)
