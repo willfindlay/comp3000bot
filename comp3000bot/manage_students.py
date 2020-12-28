@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import csv
 import io
@@ -15,6 +17,7 @@ from bidict import bidict
 from bidict._exc import *
 
 from comp3000bot import config
+from comp3000bot.logger import get_logger
 from comp3000bot.utils import (
     generate_file,
     generate_csv_file,
@@ -23,6 +26,8 @@ from comp3000bot.utils import (
     get_role,
     get_text_channel_or_curr,
 )
+
+logger = get_logger()
 
 
 class StudentInformation:
@@ -75,6 +80,40 @@ class StudentManager:
         self.students = bidict({})  # type: bidict[str, StudentInformation]
         self.registered_students = bidict({})  # type: bidict[int, StudentInformation]
 
+    @classmethod
+    def get_filename(
+        cls,
+    ) -> str:
+        """
+        Return the filename for the student manager.
+        """
+        return os.path.join(config.STUDENTS_DIR, f'students_{config.GUILD_ID}.dat')
+
+    @classmethod
+    def from_disk(cls) -> StudentManager:
+        """
+        Load StudentManager from a file saved on disk.
+        """
+        fname = cls.get_filename()
+        logger.info(f'Loading {fname}...')
+        with open(fname, 'rb') as f:
+            obj = pickle.load(f)
+        assert type(obj) == cls
+        return obj
+
+    @classmethod
+    def create_or_load(cls) -> StudentManager:
+        """
+        Load the student manager for config.GUILD_ID or create one if it doesn't exist.
+        """
+        try:
+            return StudentManager.from_disk()
+        except Exception as e:
+            logger.warn(
+                f'Unable to load student manager for {config.GUILD_ID} due to {repr(e)}'
+            )
+        return StudentManager()
+
     def add_student(
         self, name: str, number: int, email: str, overwrite: bool = False
     ) -> StudentInformation:
@@ -85,10 +124,9 @@ class StudentManager:
             try:
                 self.students[student.secret] = student
             except ValueDuplicationError:
-                print(
+                raise Exception(
                     f'Refusing to update existing {repr(student)}. You may wish to set overwrite to True.'
                 )
-                return None
         return student
 
     def remove_student(self, number: int):
@@ -136,50 +174,44 @@ class StudentManager:
             [student.csv_row() for student in self.students.values()],
         )
 
-    @classmethod
-    def get_filename(
-        cls,
-    ) -> str:
-        """
-        Return the canonical filename of the StudentManager for guild hash @_hash.
-        """
-        return os.path.join(config.STUDENTS_DIR, f'students_{config.GUILD_ID}.dat')
-
     def to_disk(self):
         """
         Write StudentManager to disk.
         """
         fname = self.get_filename()
-        print(f'Saving {fname}...')
+        logger.info(f'Saving {fname}...')
         with open(fname, 'wb+') as f:
             pickle.dump(self, f)
 
-    @classmethod
-    def from_disk(cls) -> 'StudentManager':
-        """
-        Load StudentManager from a file saved on disk.
-        """
-        fname = cls.get_filename()
-        print(f'Loading {fname}...')
-        with open(fname, 'rb') as f:
-            obj = pickle.load(f)
-        assert type(obj) == cls
-        return obj
-
-    def populate_from_csv_file(
-        self, fp: IO[str], has_header: bool, overwrite: bool = False
+    async def populate_from_csv_file(
+        self,
+        ctx: commands.Context,
+        fp: IO[str],
+        has_header: bool,
+        overwrite: bool = False,
     ) -> 'StudentInformation':
         """
         Populate this student manager from an open CSV file.
+        The format should be as follows:
+            fname, lname, email, number
         """
         reader = csv.reader(fp)
+        failed_count = 0
+        success_count = 0
         if has_header:
             reader = reader[1:]
-        for name, number, email in reader:
+        for fname, lname, email, number in reader:
+            name = f'{fname} {lname}'
             try:
                 self.add_student(name, int(number), email, overwrite)
-            except KeyError as e:
-                print(f'Unable to add student: {e}')
+                success_count += 1
+            except Exception as e:
+                logger.error(f'Unable to add student ({name}, {number})', exc_info=e)
+                failed_count += 1
+        if failed_count:
+            await ctx.send(f'Failed to add {failed_count} students')
+        else:
+            await ctx.send(f'Added {success_count} students successfully')
 
 
 class ManageStudents(commands.Cog):
@@ -192,18 +224,13 @@ class ManageStudents(commands.Cog):
         bot.loop.create_task(self._autosave())
         atexit.register(self.save)
 
-        try:
-            mgr = StudentManager.from_disk()
-        except Exception as e:
-            print(f'Unable to load student manager for {config.GUILD_ID}: {repr(e)}')
-            mgr = StudentManager()
-        self.mgr = mgr
+        self.mgr = StudentManager.create_or_load()
 
     def save(self):
         """
         Save all student managers to disk.
         """
-        print('Saving all student information to disk...')
+        logger.info('Saving all student information to disk...')
         self.mgr.to_disk()
 
     async def _autosave(self):
@@ -226,7 +253,7 @@ class ManageStudents(commands.Cog):
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         """
-        Hooks a member joining @guild.
+        Hook a @member joining the server. Send a welcome message prompting them for their secret.
         """
         # Send a welcome message
         try:
@@ -262,23 +289,25 @@ class ManageStudents(commands.Cog):
 
         if not member:
             await ctx.send(
-                f'I was unable to find you in the server {guild.name}. Please check the spelling and try again.'
+                f'I was unable to find you in the server {guild.name}. Perhaps you have been removed automatically. Try joining again.'
             )
-            return
+            raise Exception(f"Unable to find `{ctx.author.name}` in `{guild.name}`")
 
         student_manager = self.mgr
 
         try:
             student = student_manager.student_by_secret(your_secret)
         except Exception as e:
-            await ctx.send(f'Bad secret, please try again: {repr(e)}.')
-            raise e
+            await ctx.send(f'Incorrect secret, please try again.')
+            raise e from None
 
         if student.is_registered:
             await ctx.send(
                 f'You are already registered as a student with {guild.name}. Please contact an instructor or TA for assistance.'
             )
-            return
+            raise Exception(
+                f"Student with Discord account `{ctx.author.name}` is already registered"
+            )
 
         # Name needs to be short enough
         name = student.name
@@ -293,17 +322,17 @@ class ManageStudents(commands.Cog):
             await member.edit(nick=name)
         except Exception as e:
             await ctx.send(
-                f'Error setting nickname, please contact an instructor or TA: {repr(e)}'
+                f'Error setting nickname, please contact an instructor or TA.'
             )
-            raise e
+            raise e from None
 
         try:
             await member.add_roles(get_role(guild, *config.STUDENT_ROLES))
         except Exception as e:
             await ctx.send(
-                f'Error changing server role, please contact an instructor or TA: {repr(e)}'
+                f'Error changing server role, please contact an instructor or TA.'
             )
-            raise e
+            raise e from None
 
         student_manager.register_student(student, member)
 
@@ -315,24 +344,28 @@ class ManageStudents(commands.Cog):
     async def secret_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             await ctx.send(repr(error))
+        logger.error(
+            f"Failed to register student {ctx.author.name} due to an exception:",
+            exc_info=error,
+        )
 
-    @commands.command(hidden=True)
-    @commands.guild_only()
-    @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
-    async def update_students(self, ctx: commands.Context):
-        """
-        Update all stutdents.
-        """
-        guild = ctx.guild  # type: discord.Guild
-        sm = self.get_student_manger(guild)
-        sm.registered_students = bidict({})
-        for member in guild.members:
-            for student in sm.students.values():  # type: StudentInformation
-                if student.discord_name == member.name:
-                    sm.registered_students[member.id] = student
-                    print(f'Associated {member.name}, {member.id} with {student}')
-                    break
-        print('Students updated successfully')
+    # @commands.command(hidden=True)
+    # @commands.guild_only()
+    # @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
+    # async def update_students(self, ctx: commands.Context):
+    #    """
+    #    Update all stutdents.
+    #    """
+    #    guild = ctx.guild  # type: discord.Guild
+    #    sm = self.get_student_manger(guild)
+    #    sm.registered_students = bidict({})
+    #    for member in guild.members:
+    #        for student in sm.students.values():  # type: StudentInformation
+    #            if student.discord_name == member.name:
+    #                sm.registered_students[member.id] = student
+    #                logger.info(f'Associated {member.name}, {member.id} with {student}')
+    #                break
+    #    logger.info('Students updated successfully')
 
     @commands.command()
     @commands.guild_only()
@@ -380,7 +413,7 @@ class ManageStudents(commands.Cog):
     @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
     async def reset_student(self, ctx: commands.Context, number: int):
         """
-        Reset the student with student number @number.
+        Reset the student with student number @number. This will allow them to re-register with their secret.
         """
         student_manager = self.mgr
 
@@ -397,7 +430,7 @@ class ManageStudents(commands.Cog):
     @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
     async def export_students(self, ctx: commands.Context):
         """
-        Force the bot to send a DM with the student CSV attached.
+        Send a private message containing the current student CSV.
         """
         student_manager = self.mgr
 
@@ -412,7 +445,9 @@ class ManageStudents(commands.Cog):
         self, ctx: commands.Context, has_header: bool = False
     ):
         """
-        Create new students from the attached CSV file. CSV rows should be (name, student number, email).
+        Create new students from the attached CSV file.
+        CSV columns should be:
+            fname, lname, email, student number
         """
         if not len(ctx.message.attachments):
             await ctx.send('You must attach at least one csv file.')
@@ -422,14 +457,14 @@ class ManageStudents(commands.Cog):
 
         for attachment in ctx.message.attachments:  # type: discord.Attachment
             fp = io.StringIO((await attachment.read()).decode('utf-8'))
-            student_manager.populate_from_csv_file(fp, has_header)
-
-        await ctx.message.delete()
-        await ctx.send('Command message deleted to protect personal information.')
+            await student_manager.populate_from_csv_file(ctx, fp, has_header)
 
         await ctx.author.send(
             f'Student records for {ctx.guild.name}:', file=student_manager.to_csv_file()
         )
+
+        await ctx.message.delete()
+        await ctx.send('Deleted command message automatically')
 
     @commands.command()
     @commands.guild_only()

@@ -99,8 +99,9 @@ class Polls(commands.Cog):
             except KeyError:
                 continue
             results.append(f'{student.name}: {"/".join(votes)}')
-        results = sorted(results, key=lambda s: s.lower())
+
         # Send votes as a file
+        results = sorted(results, key=lambda s: s.lower())
         desc = f'Participation summary for poll "{ctx.question}":'
         _file = generate_file('poll_participation_summary.txt', '\n'.join(results))
         await ctx.message.author.send(desc, file=_file)

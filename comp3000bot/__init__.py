@@ -8,6 +8,10 @@ from comp3000bot import config
 from comp3000bot.poll import Polls
 from comp3000bot.manage_students import ManageStudents
 from comp3000bot.status_message import StatusMessage
+from comp3000bot.logger import get_logger
+
+
+logger = get_logger()
 
 
 class MyHelpCommand(commands.DefaultHelpCommand):
@@ -22,14 +26,21 @@ class MyHelpCommand(commands.DefaultHelpCommand):
 
 async def ensure_guild_id(ctx: commands.Context):
     """
-    Ensure correct guild_id.
+    If ctx.guild.guild_id is not the same as config.GUILD_ID, raise an exception.
     """
     if ctx.guild is None:
         return
 
     if ctx.guild.id != config.GUILD_ID:
-        print(f"An invalid guild {ctx.guild.name} tried to run a command.")
-        raise Exception("Wrong guild ID! This incident will be reported.")
+        await ctx.send(
+            "You have invoked this command from an unauthorized server. This incident has been reported."
+        )
+        msg = (
+            f"An unauthorized server `{ctx.guild.name}` ({ctx.guild.id}) attempted "
+            f"to invoke the command `{ctx.command.name}`"
+        )
+        logger.warn(msg)
+        raise Exception(msg)
 
 
 def main(sys_args=sys.argv[1:]):
