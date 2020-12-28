@@ -47,9 +47,11 @@ async def ensure_guild_id(ctx: commands.Context):
 # failure
 NOTIFY_WITH_DETAILS = [
     commands.UserInputError,
-    commands.CommandError,
     commands.ArgumentParsingError,
     commands.CheckFailure,
+    commands.DisabledCommand,
+    commands.CommandOnCooldown,
+    commands.MaxConcurrencyReached,
 ]
 
 
