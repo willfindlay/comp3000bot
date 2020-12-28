@@ -90,13 +90,13 @@ class Polls(commands.Cog):
         Send a participation summary to the poll author.
         """
         manage_students = self.bot.get_cog('ManageStudents')
-        sm = Students.factory()
+        students = Students.factory()
 
         # Get invidual votes
         results = []
         for user, votes in ctx.participation.items():
             try:
-                student = sm.student_by_member(user)
+                student = students.student_by_member(user)
             except KeyError:
                 continue
             results.append(f'{student.name}: {"/".join(votes)}')

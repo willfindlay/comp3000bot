@@ -41,14 +41,14 @@ class ManageStudents(commands.Cog):
         bot.loop.create_task(self._autosave())
         atexit.register(self.save)
 
-        self.mgr = Students.factory()
+        self.students = Students.factory()
 
     def save(self):
         """
         Save all student managers to disk.
         """
         logger.info('Saving all student information to disk...')
-        self.mgr.to_disk()
+        self.students.to_disk()
 
     async def _autosave(self):
         """
@@ -107,10 +107,8 @@ class ManageStudents(commands.Cog):
             )
             raise Exception(f"Unable to find `{ctx.author.name}` in `{guild.name}`")
 
-        student_manager = self.mgr
-
         try:
-            student = student_manager.student_by_secret(your_secret)
+            student = self.students.student_by_secret(your_secret)
         except Exception as e:
             await ctx.send(f'Incorrect secret, please try again.')
             raise e from None
@@ -148,7 +146,7 @@ class ManageStudents(commands.Cog):
             )
             raise e from None
 
-        student_manager.register_student(student, member)
+        self.students.register_student(student, member)
 
         await ctx.send(
             f'Role updated successfully. Welcome to {guild.name}, {name}. If you would like to request a namechange, please message the instructor or a TA.'
@@ -195,10 +193,8 @@ class ManageStudents(commands.Cog):
         """
         Create a new student with a unique secret. The bot will reply in a DM.
         """
-        student_manager = self.mgr
-
         try:
-            student = student_manager.add_student(name, number, email, overwrite)
+            student = self.students.add_student(name, number, email, overwrite)
         except Exception as e:
             await ctx.send(f'Error adding student information: {repr(e)}')
             raise e
@@ -212,10 +208,8 @@ class ManageStudents(commands.Cog):
         """
         Remove the student with student number @number.
         """
-        student_manager = self.mgr
-
         try:
-            student = student_manager.remove_student(number)
+            student = self.students.remove_student(number)
         except Exception as e:
             await ctx.send(f'Error removing student information: {repr(e)}')
             raise e
@@ -229,10 +223,8 @@ class ManageStudents(commands.Cog):
         """
         Reset the student with student number @number. This will allow them to re-register with their secret.
         """
-        student_manager = self.mgr
-
         try:
-            student = student_manager.reset_student(number)
+            student = self.students.reset_student(number)
         except Exception as e:
             await ctx.send(f'Error resetting student information: {repr(e)}')
             raise e
@@ -246,10 +238,8 @@ class ManageStudents(commands.Cog):
         """
         Send a private message containing the current student CSV.
         """
-        student_manager = self.mgr
-
         await ctx.author.send(
-            f'Student records for {ctx.guild.name}:', file=student_manager.to_csv_file()
+            f'Student records for {ctx.guild.name}:', file=self.students.to_csv_file()
         )
 
     @commands.command()
@@ -267,14 +257,12 @@ class ManageStudents(commands.Cog):
             await ctx.send('You must attach at least one csv file.')
             return
 
-        student_manager = self.mgr
-
         for attachment in ctx.message.attachments:  # type: discord.Attachment
             fp = io.StringIO((await attachment.read()).decode('utf-8'))
-            await student_manager.populate_from_csv_file(ctx, fp, has_header)
+            await self.students.populate_from_csv_file(ctx, fp, has_header)
 
         await ctx.author.send(
-            f'Student records for {ctx.guild.name}:', file=student_manager.to_csv_file()
+            f'Student records for {ctx.guild.name}:', file=self.students.to_csv_file()
         )
 
         await ctx.message.delete()
