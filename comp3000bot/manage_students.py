@@ -24,6 +24,7 @@ from comp3000bot.utils import (
     generate_csv_file,
     get_text_channel,
     get_guild,
+    get_guild_by_id,
     get_role,
     get_text_channel_or_curr,
 )
@@ -92,7 +93,7 @@ class ManageStudents(commands.Cog):
         Provide your secret and desired server name. The bot will change your name and grant you the Student role.
         """
         try:
-            guild = self.bot.guilds[0]  # type: discord.Guild
+            guild = get_guild_by_id(self.bot, config.GUILD_ID)  # type: discord.Guild
         except IndexError:
             await ctx.send(
                 "Unable to find the server. Please contact the instructor or a TA."
