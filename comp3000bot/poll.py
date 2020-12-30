@@ -8,6 +8,7 @@ import discord
 from discord.ext import commands
 
 from comp3000bot import config
+from comp3000bot.students import Students
 from comp3000bot.time import to_time
 from comp3000bot.utils import generate_file, get_text_channel_or_curr
 
@@ -89,18 +90,19 @@ class Polls(commands.Cog):
         Send a participation summary to the poll author.
         """
         manage_students = self.bot.get_cog('ManageStudents')
-        sm = manage_students.get_student_manger(ctx.guild)
+        students = Students.factory()
 
         # Get invidual votes
         results = []
         for user, votes in ctx.participation.items():
             try:
-                student = sm.student_by_member(user)
+                student = students.student_by_member(user)
+                results.append(f'{student.name}: {"/".join(votes)}')
             except KeyError:
-                continue
-            results.append(f'{student.name}: {"/".join(votes)}')
-        results = sorted(results, key=lambda s: s.lower())
+                results.append(f'{user.name} (Fallback): {"/".join(votes)}')
+
         # Send votes as a file
+        results = sorted(results, key=lambda s: s.lower())
         desc = f'Participation summary for poll "{ctx.question}":'
         _file = generate_file('poll_participation_summary.txt', '\n'.join(results))
         await ctx.message.author.send(desc, file=_file)

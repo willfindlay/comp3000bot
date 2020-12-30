@@ -1,5 +1,6 @@
 import humanreadable as hr
 
+
 def to_time(argument):
     try:
         time = hr.Time(argument, default_unit='minutes')
