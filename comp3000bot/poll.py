@@ -97,9 +97,9 @@ class Polls(commands.Cog):
         for user, votes in ctx.participation.items():
             try:
                 student = students.student_by_member(user)
+                results.append(f'{student.name}: {"/".join(votes)}')
             except KeyError:
-                continue
-            results.append(f'{student.name}: {"/".join(votes)}')
+                results.append(f'{user.name} (Fallback): {"/".join(votes)}')
 
         # Send votes as a file
         results = sorted(results, key=lambda s: s.lower())
