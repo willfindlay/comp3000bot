@@ -269,51 +269,51 @@ class ManageStudents(commands.Cog):
         await ctx.message.delete()
         await ctx.send('Deleted command message automatically')
 
-    @commands.command()
-    @commands.guild_only()
-    @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
-    async def participation(self, ctx: commands.Context):
-        """
-        Summarize participation in the Lecture channel.
-        """
-        channel = get_text_channel_or_curr(ctx, *config.LECTURE_CHANNELS)
+    # @commands.command()
+    # @commands.guild_only()
+    # @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
+    # async def participation(self, ctx: commands.Context):
+    #    """
+    #    Summarize participation in the Lecture channel.
+    #    """
+    #    channel = get_text_channel_or_curr(ctx, *config.LECTURE_CHANNELS)
 
-        # Calculate time delta for 24h period
-        this_morning = dt.datetime.now().replace(
-            hour=0, minute=0, second=0, microsecond=1
-        )
-        tomorrow_morning = this_morning + dt.timedelta(days=1)
+    #    # Calculate time delta for 24h period
+    #    this_morning = dt.datetime.now().replace(
+    #        hour=0, minute=0, second=0, microsecond=1
+    #    )
+    #    tomorrow_morning = this_morning + dt.timedelta(days=1)
 
-        participation = defaultdict(lambda: 0)  # type: Dict[str, int]
+    #    participation = defaultdict(lambda: 0)  # type: Dict[str, int]
 
-        sm = self.get_student_manger(ctx.guild)
+    #    sm = self.students
 
-        messages = channel.history(
-            limit=None, before=tomorrow_morning, after=this_morning
-        )
-        async for message in messages:  # type: discord.Message
-            if get_role(ctx.guild, *config.STUDENT_ROLES) not in message.author.roles:
-                continue
-            try:
-                student = sm.student_by_member(message.author)
-            except KeyError:
-                continue
-            nickname = student.name
-            participation[nickname] += len(message.content.split())
+    #    messages = channel.history(
+    #        limit=None, before=tomorrow_morning, after=this_morning
+    #    )
+    #    async for message in messages:  # type: discord.Message
+    #        if get_role(ctx.guild, *config.STUDENT_ROLES) not in message.author.roles:
+    #            continue
+    #        try:
+    #            student = sm.student_by_member(message.author)
+    #        except KeyError:
+    #            continue
+    #        nickname = student.name
+    #        participation[nickname] += len(message.content.split())
 
-        if participation.items():
-            content = '\n'.join(
-                sorted(
-                    [f'{name}: {count}' for name, count in participation.items()],
-                    key=lambda v: v[0].lower(),
-                )
-            )
-            summary = generate_file(
-                'lecture_participation_{this_morning.date()}.txt', content
-            )
-            await ctx.author.send(
-                f'Participation summary (by words typed) for {this_morning.date()}:',
-                file=summary,
-            )
-        else:
-            await ctx.author.send(f'No participation data for {this_morning.date()}')
+    #    if participation.items():
+    #        content = '\n'.join(
+    #            sorted(
+    #                [f'{name}: {count}' for name, count in participation.items()],
+    #                key=lambda v: v[0].lower(),
+    #            )
+    #        )
+    #        summary = generate_file(
+    #            'lecture_participation_{this_morning.date()}.txt', content
+    #        )
+    #        await ctx.author.send(
+    #            f'Participation summary (by words typed) for {this_morning.date()}:',
+    #            file=summary,
+    #        )
+    #    else:
+    #        await ctx.author.send(f'No participation data for {this_morning.date()}')

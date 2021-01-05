@@ -89,7 +89,6 @@ class Polls(commands.Cog):
         """
         Send a participation summary to the poll author.
         """
-        manage_students = self.bot.get_cog('ManageStudents')
         students = Students.factory()
 
         # Get invidual votes

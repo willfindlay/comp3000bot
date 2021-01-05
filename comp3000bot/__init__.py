@@ -8,6 +8,7 @@ from comp3000bot import config
 from comp3000bot.poll import Polls
 from comp3000bot.manage_students import ManageStudents
 from comp3000bot.status_message import StatusMessage
+from comp3000bot.participation import Participation
 from comp3000bot.logger import get_logger
 
 
@@ -52,6 +53,7 @@ NOTIFY_WITH_DETAILS = [
     commands.DisabledCommand,
     commands.CommandOnCooldown,
     commands.MaxConcurrencyReached,
+    commands.CommandNotFound,
 ]
 
 
@@ -86,7 +88,7 @@ def main(sys_args=sys.argv[1:]):
     client.add_cog(Polls(client))
     client.add_cog(ManageStudents(client))
     client.add_cog(StatusMessage(client))
-    # TODO: Add a participation cog
+    client.add_cog(Participation(client))
 
     client.before_invoke(ensure_guild_id)
     client.on_command_error = on_command_error
