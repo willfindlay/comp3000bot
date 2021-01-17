@@ -113,7 +113,7 @@ class Polls(commands.Cog):
         await self.bot.wait_until_ready()
 
     @commands.command()
-    @commands.has_any_role(*config.INSTRUCTOR_ROLES, *config.TA_ROLES)
+    @commands.has_any_role(*config.INSTRUCTOR_ROLES)
     @commands.guild_only()
     async def poll(self, ctx: commands.Context, question: str, timeout: to_time = 300):
         """
