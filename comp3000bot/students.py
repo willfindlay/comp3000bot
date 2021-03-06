@@ -61,11 +61,11 @@ class StudentInformation:
         self.is_registered = False
 
     @classmethod
-    def csv_header(cls) -> Tuple[str, str, str, str, str]:
+    def csv_header(cls) -> Tuple[str, str, str, str, str, str]:
         return ('name', 'number', 'email', 'discord_name', 'discord_id', 'secret')
 
-    def csv_row(self) -> Tuple[str, int, str, str, str]:
-        return (self.name, self.number, self.email, self.discord_name, self.discord_id, self.secret)
+    def csv_row(self) -> Tuple[str, int, str, str, str, str]:
+        return (self.name, self.number, self.email, self.discord_name, str(self.discord_id), self.secret)
 
     def to_csv_file(self) -> discord.File:
         return generate_csv_file(
